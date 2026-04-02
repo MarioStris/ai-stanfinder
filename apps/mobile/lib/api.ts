@@ -4,6 +4,7 @@ import type {
   PaginatedResult,
   Filter,
   MatchResult,
+  User,
 } from "@stanfinder/shared-types";
 
 type HttpMethod = "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
@@ -67,6 +68,14 @@ export interface CreateFilterPayload {
   freeText?: string;
 }
 
+export interface ListingDetail extends MatchResult {
+  images: string[];
+  description?: string;
+  agentPhone?: string;
+  agentEmail?: string;
+  address?: string;
+}
+
 export const apiClient = {
   get: <T>(path: string, token?: string) => request<T>(path, { token }),
   post: <T>(path: string, body: unknown, token?: string) =>
@@ -110,5 +119,44 @@ export const matchesApi = {
     ),
 
   getDetail: (matchId: string, token: string) =>
-    apiClient.get<MatchResult>(`/api/v1/matches/${matchId}`, token),
+    apiClient.get<ListingDetail>(`/api/v1/matches/${matchId}`, token),
 };
+
+export const profileApi = {
+  getProfile: (token: string) =>
+    apiClient.get<User>("/api/v1/profile", token),
+
+  updateProfile: (payload: Partial<User>, token: string) =>
+    apiClient.patch<User>("/api/v1/profile", payload, token),
+
+  deleteAccount: (token: string) =>
+    apiClient.delete("/api/v1/profile", token),
+};
+
+export function getMatches(filterId: string, token: string) {
+  return matchesApi.getByFilter(filterId, token);
+}
+
+export function refreshMatches(filterId: string, token: string) {
+  return matchesApi.refresh(filterId, token);
+}
+
+export function getListingDetail(matchId: string, token: string) {
+  return matchesApi.getDetail(matchId, token);
+}
+
+export function createFilter(payload: CreateFilterPayload, token: string) {
+  return filtersApi.create(payload, token);
+}
+
+export function updateFilter(
+  filterId: string,
+  payload: Partial<CreateFilterPayload>,
+  token: string
+) {
+  return filtersApi.update(filterId, payload, token);
+}
+
+export function getProfile(token: string) {
+  return profileApi.getProfile(token);
+}

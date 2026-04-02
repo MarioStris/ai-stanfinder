@@ -49,6 +49,26 @@ export async function removeUserSchedule(filterId: string): Promise<void> {
   }
 }
 
+export async function updateSchedulerInterval(
+  userId: string,
+  intervalMinutes: number,
+): Promise<void> {
+  const filters = await db.filter.findMany({
+    where: { userId, isActive: true },
+    include: { user: { include: { subscription: true } } },
+  });
+
+  for (const filter of filters) {
+    const tier = (filter.user.subscription?.tier ?? 'FREE') as 'FREE' | 'PREMIUM';
+    await removeUserSchedule(filter.id);
+    await scheduleUserMatching(filter.userId, filter.id, tier);
+  }
+
+  console.log(
+    `[Scheduler] Updated interval to ${intervalMinutes}min for user ${userId} (${filters.length} filters)`,
+  );
+}
+
 export async function initScheduler(): Promise<void> {
   const activeFilters = await db.filter.findMany({
     where: { isActive: true },

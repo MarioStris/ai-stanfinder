@@ -1,6 +1,7 @@
 import { createWorker, QUEUE_NAMES } from '../lib/queue.js';
 import { processIngestJob, type IngestJobData } from './ingest.worker.js';
 import { processMatchingJob, type MatchingJobData } from './matching.worker.js';
+import { processNotificationJob, type NotificationJobData } from './notification.worker.js';
 import type { Worker } from 'bullmq';
 
 const workers: Worker[] = [];
@@ -31,6 +32,22 @@ export function startWorkers(): void {
 
   workers.push(matchingWorker);
   console.log('[Workers] Matching worker registered');
+
+  const notificationWorker = createWorker<NotificationJobData>(
+    QUEUE_NAMES.NOTIFICATIONS,
+    processNotificationJob,
+  );
+
+  notificationWorker.on('completed', (job) => {
+    console.log(`[Worker] Job ${job.id} completed on queue "${QUEUE_NAMES.NOTIFICATIONS}"`);
+  });
+
+  notificationWorker.on('failed', (job, err) => {
+    console.error(`[Worker] Job ${job?.id} failed on queue "${QUEUE_NAMES.NOTIFICATIONS}":`, err.message);
+  });
+
+  workers.push(notificationWorker);
+  console.log('[Workers] Notification worker registered');
 }
 
 export async function stopWorkers(): Promise<void> {

@@ -2,6 +2,9 @@ import type { Job } from 'bullmq';
 import { db } from '../lib/db.js';
 import { matchListings } from '../lib/grok.js';
 import { getCachedMatches, setCachedMatches } from '../lib/matching-cache.js';
+import { getQueue, QUEUE_NAMES } from '../lib/queue.js';
+import { NotificationType, NotificationChannel } from '@prisma/client';
+import type { NotificationJobData } from './notification.worker.js';
 
 export interface MatchingJobData {
   filterId: string;
@@ -11,6 +14,56 @@ export interface MatchingJobData {
 
 const MAX_API_CALLS_PER_USER_PER_DAY = 50;
 const TOP_MATCHES = 10;
+const DEFAULT_MIN_MATCH_SCORE = 80;
+
+async function enqueueMatchNotifications(
+  userId: string,
+  filterId: string,
+  top10: Array<{ listingId: string; score: number; aiComment?: string }>,
+  _allResults: typeof top10,
+): Promise<void> {
+  const prefs = await db.userPreference.findUnique({ where: { userId } });
+  const minScore = prefs?.minMatchPercent ?? DEFAULT_MIN_MATCH_SCORE;
+
+  const notifiableMatches = top10.filter((m) => m.score >= minScore);
+  if (notifiableMatches.length === 0) return;
+
+  const queue = getQueue(QUEUE_NAMES.NOTIFICATIONS);
+  const topMatch = notifiableMatches[0];
+
+  const property = await db.property.findUnique({
+    where: { id: topMatch.listingId },
+    select: { title: true, city: true, price: true },
+  });
+
+  if (!property) return;
+
+  const matchRecord = await db.match.findFirst({
+    where: { filterId, propertyId: topMatch.listingId },
+    select: { id: true },
+  });
+
+  const job: NotificationJobData = {
+    userId,
+    type: NotificationType.NEW_MATCH,
+    title: `${topMatch.score}% match found`,
+    body: `${property.title} — ${property.city} | ${property.price.toLocaleString()} EUR`,
+    data: {
+      matchId: matchRecord?.id ?? '',
+      propertyId: topMatch.listingId,
+      matchPercent: topMatch.score,
+      totalMatches: notifiableMatches.length,
+    },
+    channel: NotificationChannel.PUSH,
+  };
+
+  await queue.add('send-notification', job, {
+    removeOnComplete: { count: 10 },
+    removeOnFail: { count: 5 },
+  });
+
+  console.log(`[MatchingWorker] Enqueued notification for user ${userId}, top match score=${topMatch.score}`);
+}
 
 async function checkRateLimit(userId: string): Promise<boolean> {
   const since = new Date();
@@ -137,4 +190,6 @@ export async function processMatchingJob(job: Job<MatchingJobData>): Promise<voi
   }
 
   console.log(`[MatchingWorker] Saved ${top10.length} matches for filter ${filterId}`);
+
+  await enqueueMatchNotifications(userId, filterId, top10, matchResults);
 }

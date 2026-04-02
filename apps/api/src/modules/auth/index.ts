@@ -1,6 +1,7 @@
 import { Hono } from 'hono';
 import { requireAuth } from '../../middleware/auth.js';
 import { db } from '../../lib/db.js';
+import gdprRoutes from './gdpr.js';
 
 const authRouter = new Hono();
 
@@ -33,5 +34,7 @@ authRouter.get('/me', requireAuth, async (c) => {
     meta: null,
   });
 });
+
+authRouter.route('/', gdprRoutes);
 
 export default authRouter;

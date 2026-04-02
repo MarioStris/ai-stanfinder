@@ -1,9 +1,20 @@
-import { View, Text, ScrollView, TouchableOpacity, Linking } from "react-native";
+import React, { useEffect, useState } from "react";
+import {
+  View,
+  Text,
+  ScrollView,
+  TouchableOpacity,
+  Linking,
+  ActivityIndicator,
+} from "react-native";
 import { useLocalSearchParams, useNavigation } from "expo-router";
-import { useEffect } from "react";
 import { useStore } from "@lib/store";
+import { matchesApi } from "@lib/api";
 import { Button } from "@components/ui/Button";
 import { Badge, MatchBadge } from "@components/ui/Badge";
+import { ImageGallery } from "@components/ImageGallery";
+import { AICommentBox } from "@components/AICommentBox";
+import type { ListingDetail } from "@lib/api";
 
 function PriceSection({
   price,
@@ -32,28 +43,18 @@ function PriceSection({
         ) : null}
       </View>
       {diffPercent !== null ? (
-        <Badge
-          label={
-            diffPercent < 0
-              ? `${Math.abs(diffPercent)}% ispod prosjeka`
-              : `${diffPercent}% iznad prosjeka`
-          }
-          variant={diffPercent < 0 ? "success" : "warning"}
-          size="sm"
-        />
+        <View className="mt-1">
+          <Badge
+            label={
+              diffPercent < 0
+                ? `${Math.abs(diffPercent)}% ispod prosjeka`
+                : `${diffPercent}% iznad prosjeka`
+            }
+            variant={diffPercent < 0 ? "success" : "warning"}
+            size="sm"
+          />
+        </View>
       ) : null}
-    </View>
-  );
-}
-
-function AiCommentBox({ comment }: { comment: string }) {
-  return (
-    <View className="mx-4 my-4 bg-blue-50 border border-blue-100 rounded-xl p-4">
-      <View className="flex-row items-center mb-2">
-        <Text className="text-base mr-2">🤖</Text>
-        <Text className="text-sm font-semibold text-blue-800">AI kaze</Text>
-      </View>
-      <Text className="text-sm text-blue-700 leading-relaxed">{comment}</Text>
     </View>
   );
 }
@@ -76,7 +77,7 @@ function InfoGrid({
   const items = [
     { label: "Kvadratura", value: `${areaSqm}m²` },
     { label: "Sobe", value: rooms ? String(rooms) : "—" },
-    { label: "Kat", value: floor ? String(floor) : "—" },
+    { label: "Kat", value: floor !== undefined ? String(floor) : "—" },
     { label: "Godiste", value: yearBuilt ? String(yearBuilt) : "—" },
     { label: "Parking", value: hasParking ? "Da" : "Ne" },
     { label: "Balkon", value: hasBalcony ? "Da" : "Ne" },
@@ -84,9 +85,7 @@ function InfoGrid({
 
   return (
     <View className="mx-4 mb-4">
-      <Text className="text-base font-semibold text-gray-900 mb-3">
-        Detalji
-      </Text>
+      <Text className="text-base font-semibold text-gray-900 mb-3">Detalji</Text>
       <View className="flex-row flex-wrap">
         {items.map((item) => (
           <View key={item.label} className="w-1/3 mb-4 pr-2">
@@ -97,6 +96,32 @@ function InfoGrid({
           </View>
         ))}
       </View>
+    </View>
+  );
+}
+
+function ExpandableDescription({ text }: { text: string }) {
+  const [expanded, setExpanded] = useState(false);
+  const isLong = text.length > 200;
+
+  return (
+    <View className="mx-4 mb-4">
+      <Text className="text-base font-semibold text-gray-900 mb-2">Opis</Text>
+      <Text className="text-sm text-gray-600 leading-relaxed">
+        {!expanded && isLong ? `${text.slice(0, 200)}...` : text}
+      </Text>
+      {isLong && (
+        <TouchableOpacity
+          onPress={() => setExpanded((v) => !v)}
+          className="mt-2"
+          accessibilityRole="button"
+          accessibilityLabel={expanded ? "Prikazano manje" : "Prikazano vise"}
+        >
+          <Text className="text-sm text-blue-600 font-medium">
+            {expanded ? "Prikazano manje" : "Prikazano vise"}
+          </Text>
+        </TouchableOpacity>
+      )}
     </View>
   );
 }
@@ -112,14 +137,46 @@ function NotFoundState() {
   );
 }
 
+function LoadingState() {
+  return (
+    <View className="flex-1 items-center justify-center">
+      <ActivityIndicator size="large" color="#2563EB" />
+      <Text className="text-sm text-gray-500 mt-3">Ucitavanje...</Text>
+    </View>
+  );
+}
+
 export default function MatchDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const navigation = useNavigation();
   const matches = useStore((s) => s.matches);
+  const authToken = useStore((s) => s.authToken);
   const toggleFavorite = useStore((s) => s.toggleFavorite);
 
-  const match = matches.find((m) => m.id === id);
-  const listing = match?.listing;
+  const storeMatch = matches.find((m) => m.id === id);
+  const [detail, setDetail] = useState<ListingDetail | null>(null);
+  const [isLoading, setIsLoading] = useState(!storeMatch);
+
+  useEffect(() => {
+    if (!id || !authToken) return;
+    if (storeMatch && !detail) {
+      setDetail(storeMatch as unknown as ListingDetail);
+    }
+    async function fetchDetail() {
+      setIsLoading(true);
+      try {
+        const result = await matchesApi.getDetail(id, authToken!);
+        if (result && "data" in result && result.data) {
+          setDetail(result.data as ListingDetail);
+        }
+      } finally {
+        setIsLoading(false);
+      }
+    }
+    fetchDetail();
+  }, [id, authToken]);
+
+  const match = detail ?? (storeMatch as unknown as ListingDetail | undefined);
 
   useEffect(() => {
     if (match) {
@@ -129,20 +186,19 @@ export default function MatchDetailScreen() {
             onPress={() => toggleFavorite(match.id)}
             className="mr-2 p-2"
             accessibilityRole="button"
-            accessibilityLabel={
-              match.isFavorite ? "Ukloni iz favorita" : "Spremi u favorite"
-            }
+            accessibilityLabel={match.isFavorite ? "Ukloni iz favorita" : "Spremi u favorite"}
           >
-            <Text className="text-xl">
-              {match.isFavorite ? "❤️" : "🤍"}
-            </Text>
+            <Text className="text-xl">{match.isFavorite ? "❤️" : "🤍"}</Text>
           </TouchableOpacity>
         ),
       });
     }
   }, [match?.isFavorite]);
 
-  if (!match || !listing) return <NotFoundState />;
+  if (isLoading && !match) return <LoadingState />;
+  if (!match) return <NotFoundState />;
+
+  const listing = match.listing;
 
   function handleCallAgent() {
     if (listing?.agentPhone) {
@@ -157,17 +213,19 @@ export default function MatchDetailScreen() {
   }
 
   function handleOpenMaps() {
-    const query = listing?.address ?? `${listing?.city} ${listing?.neighborhood}`;
-    Linking.openURL(`https://maps.google.com/?q=${encodeURIComponent(query ?? "")}`);
+    const query =
+      listing?.address ?? `${listing?.city} ${listing?.neighborhood ?? ""}`;
+    Linking.openURL(
+      `https://maps.google.com/?q=${encodeURIComponent(query.trim())}`
+    );
   }
+
+  const images: string[] = listing?.images ?? [];
 
   return (
     <View className="flex-1 bg-white">
       <ScrollView className="flex-1" contentContainerStyle={{ paddingBottom: 100 }}>
-        <View className="bg-gray-200 h-56 items-center justify-center">
-          <Text className="text-6xl">🏠</Text>
-          <Text className="text-sm text-gray-400 mt-2">Nema slike</Text>
-        </View>
+        <ImageGallery images={images} height={256} />
 
         <View className="flex-row items-center px-4 pt-4 pb-2">
           <MatchBadge percentage={match.matchPercentage} />
@@ -180,7 +238,7 @@ export default function MatchDetailScreen() {
           avgPricePerSqm={listing.avgPricePerSqmInArea}
         />
 
-        <AiCommentBox comment={match.aiComment} />
+        <AICommentBox comment={match.aiComment} />
 
         <InfoGrid
           areaSqm={listing.areaSqm}
@@ -211,14 +269,7 @@ export default function MatchDetailScreen() {
         </View>
 
         {listing.description ? (
-          <View className="mx-4 mb-4">
-            <Text className="text-base font-semibold text-gray-900 mb-2">
-              Opis
-            </Text>
-            <Text className="text-sm text-gray-600 leading-relaxed">
-              {listing.description}
-            </Text>
-          </View>
+          <ExpandableDescription text={listing.description} />
         ) : null}
       </ScrollView>
 
@@ -229,6 +280,11 @@ export default function MatchDetailScreen() {
             variant="primary"
             onPress={handleCallAgent}
             disabled={!listing.agentPhone}
+            accessibilityLabel={
+              listing.agentPhone
+                ? `Nazovi agenta na ${listing.agentPhone}`
+                : "Broj telefona nije dostupan"
+            }
           />
         </View>
         <View className="flex-1">
@@ -237,6 +293,11 @@ export default function MatchDetailScreen() {
             variant="outline"
             onPress={handleEmailAgent}
             disabled={!listing.agentEmail}
+            accessibilityLabel={
+              listing.agentEmail
+                ? `Posalji upit na ${listing.agentEmail}`
+                : "Email nije dostupan"
+            }
           />
         </View>
       </View>

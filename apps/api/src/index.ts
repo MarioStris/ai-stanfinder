@@ -10,6 +10,8 @@ import authRouter from './modules/auth/index.js';
 import listingsRouter from './modules/listings/index.js';
 import scrapingRouter from './modules/scraping/index.js';
 import matchingRouter from './modules/matching/index.js';
+import billingRouter from './modules/billing/index.js';
+import notificationsRouter from './modules/notifications/index.js';
 
 const app = new Hono();
 
@@ -32,6 +34,8 @@ app.route('/api/v1', authRouter);
 app.route('/api/v1', listingsRouter);
 app.route('/api/v1', scrapingRouter);
 app.route('/api/v1', matchingRouter);
+app.route('/api/v1', billingRouter);
+app.route('/api/v1', notificationsRouter);
 
 app.onError(errorHandler);
 
