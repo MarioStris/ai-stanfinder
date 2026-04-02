@@ -1,7 +1,7 @@
 import React from "react";
 import { View, Text, Image, TouchableOpacity } from "react-native";
 import { MatchBadge } from "@components/ui/Badge";
-import type { MatchResult } from "@stanfinder/shared-types";
+import type { MatchResult } from "@ai-stanfinder/shared-types";
 
 interface MatchCardProps {
   match: MatchResult;

@@ -1,5 +1,5 @@
 import { Queue, Worker, type Job } from 'bullmq';
-import { getRedis } from './redis.js';
+import { getRedis, getBullMQConnection } from './redis.js';
 
 const connection = {
   get client() {
@@ -30,7 +30,7 @@ export function createWorker<T>(
   processor: (job: Job<T>) => Promise<void>,
 ): Worker<T> {
   return new Worker<T>(name, processor, {
-    connection: getRedis(),
+    connection: getBullMQConnection(),
     concurrency: parseInt(process.env.WORKER_CONCURRENCY ?? '5', 10),
   });
 }

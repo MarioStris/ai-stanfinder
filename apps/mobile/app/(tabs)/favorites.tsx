@@ -11,7 +11,7 @@ import { useRouter } from "expo-router";
 import { useStore } from "@lib/store";
 import { MatchBadge } from "@components/ui/Badge";
 import { Card } from "@components/ui/Card";
-import type { MatchResult } from "@stanfinder/shared-types";
+import type { MatchResult } from "@ai-stanfinder/shared-types";
 
 interface SwipeableFavoriteCardProps {
   match: MatchResult;

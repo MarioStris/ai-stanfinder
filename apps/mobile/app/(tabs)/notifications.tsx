@@ -1,7 +1,7 @@
 import { View, Text, FlatList, TouchableOpacity } from "react-native";
 import { useStore } from "@lib/store";
 import { useRouter } from "expo-router";
-import type { Notification } from "@stanfinder/shared-types";
+import type { Notification } from "@ai-stanfinder/shared-types";
 
 const NOTIFICATION_ICONS: Record<string, string> = {
   NEW_MATCH: "🔥",

@@ -28,6 +28,21 @@ export function getRedis(): Redis {
   return redisClient;
 }
 
+// BullMQ workers require maxRetriesPerRequest: null
+export function getBullMQConnection(): Redis {
+  const url = process.env.REDIS_URL;
+
+  if (!url) {
+    throw new Error('REDIS_URL environment variable is not set');
+  }
+
+  return new Redis(url, {
+    maxRetriesPerRequest: null,
+    enableReadyCheck: true,
+    lazyConnect: false,
+  });
+}
+
 export async function disconnectRedis(): Promise<void> {
   if (redisClient) {
     await redisClient.quit();

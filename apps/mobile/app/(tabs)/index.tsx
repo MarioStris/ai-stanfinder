@@ -13,7 +13,7 @@ import { useStore } from "@lib/store";
 import { matchesApi } from "@lib/api";
 import { MatchCard } from "@components/MatchCard";
 import { SkeletonLoader } from "@components/SkeletonLoader";
-import type { MatchResult } from "@stanfinder/shared-types";
+import type { MatchResult } from "@ai-stanfinder/shared-types";
 
 function FilterSelector() {
   const [open, setOpen] = useState(false);

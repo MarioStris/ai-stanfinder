@@ -4,7 +4,7 @@ import type {
   Filter,
   MatchResult,
   Notification,
-} from "@stanfinder/shared-types";
+} from "@ai-stanfinder/shared-types";
 
 interface UserSlice {
   user: User | null;

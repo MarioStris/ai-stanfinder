@@ -11,7 +11,7 @@ services:
     container_name: ai-stanfinder-api
     restart: unless-stopped
     ports:
-      - '3001:3001'
+      - '3002:3001'
     environment:
       NODE_ENV: development
       PORT: 3001
@@ -46,7 +46,7 @@ services:
     container_name: ai-stanfinder-postgres
     restart: unless-stopped
     ports:
-      - '5432:5432'
+      - '5433:5432'
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-stanfinder}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-stanfinder_dev}
@@ -71,7 +71,7 @@ services:
     container_name: ai-stanfinder-redis
     restart: unless-stopped
     ports:
-      - '6379:6379'
+      - '6380:6379'
     command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
     volumes:
       - redis_data:/data

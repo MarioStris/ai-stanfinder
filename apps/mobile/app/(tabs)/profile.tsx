@@ -4,7 +4,7 @@ import { useRouter } from "expo-router";
 import { useStore } from "@lib/store";
 import { Card } from "@components/ui/Card";
 import { Button } from "@components/ui/Button";
-import { UserTier } from "@stanfinder/shared-types";
+import { UserTier } from "@ai-stanfinder/shared-types";
 
 function SectionHeader({ title }: { title: string }) {
   return (

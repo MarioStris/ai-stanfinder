@@ -41,6 +41,10 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
       },
     ],
   ],
+  web: {
+    bundler: "metro",
+    favicon: "./assets/favicon.png",
+  },
   scheme: "stanfinder",
   experiments: {
     typedRoutes: true,

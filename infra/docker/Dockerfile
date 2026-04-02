@@ -8,8 +8,9 @@ RUN corepack enable && corepack prepare pnpm@9 --activate
 
 WORKDIR /app
 
-# Copy workspace manifests
+# Copy workspace manifests + lockfile
 COPY pnpm-workspace.yaml ./
+COPY pnpm-lock.yaml ./
 COPY package.json ./
 COPY turbo.json ./
 
@@ -29,8 +30,8 @@ RUN pnpm --filter @ai-stanfinder/api run db:generate
 # Copy full source
 COPY apps/api/ ./apps/api/
 
-# Build TypeScript
-RUN pnpm --filter @ai-stanfinder/api run build
+# Build with esbuild (fast, no module resolution issues in monorepo)
+RUN pnpm run build
 
 # Prune to production-only dependencies
 RUN pnpm --filter @ai-stanfinder/api deploy --prod /app/production

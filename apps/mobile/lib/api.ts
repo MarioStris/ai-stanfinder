@@ -5,7 +5,7 @@ import type {
   Filter,
   MatchResult,
   User,
-} from "@stanfinder/shared-types";
+} from "@ai-stanfinder/shared-types";
 
 type HttpMethod = "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
 
