@@ -1,0 +1,108 @@
+version: '3.9'
+
+services:
+  # -------------------------------------------------------
+  # API — Hono Node.js server
+  # -------------------------------------------------------
+  api:
+    build:
+      context: ../..
+      dockerfile: infra/docker/Dockerfile
+    container_name: ai-stanfinder-api
+    restart: unless-stopped
+    ports:
+      - '3001:3001'
+    environment:
+      NODE_ENV: development
+      PORT: 3001
+      DATABASE_URL: postgresql://${POSTGRES_USER:-stanfinder}:${POSTGRES_PASSWORD:-stanfinder_dev}@postgres:5432/${POSTGRES_DB:-stanfinder_dev}?schema=public
+      REDIS_URL: redis://redis:6379
+      CLERK_SECRET_KEY: ${CLERK_SECRET_KEY}
+      CLERK_PUBLISHABLE_KEY: ${CLERK_PUBLISHABLE_KEY}
+      GROK_API_KEY: ${GROK_API_KEY}
+      APIFY_API_TOKEN: ${APIFY_API_TOKEN}
+      REVENUECAT_WEBHOOK_SECRET: ${REVENUECAT_WEBHOOK_SECRET}
+      EXPO_ACCESS_TOKEN: ${EXPO_ACCESS_TOKEN}
+      SENTRY_DSN: ${SENTRY_DSN}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ['CMD', 'curl', '-f', 'http://localhost:3001/api/health']
+      interval: 30s
+      timeout: 10s
+      start_period: 30s
+      retries: 3
+    networks:
+      - stanfinder-network
+
+  # -------------------------------------------------------
+  # PostgreSQL 16
+  # -------------------------------------------------------
+  postgres:
+    image: postgres:16-alpine
+    container_name: ai-stanfinder-postgres
+    restart: unless-stopped
+    ports:
+      - '5432:5432'
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-stanfinder}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-stanfinder_dev}
+      POSTGRES_DB: ${POSTGRES_DB:-stanfinder_dev}
+      PGDATA: /var/lib/postgresql/data/pgdata
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U ${POSTGRES_USER:-stanfinder} -d ${POSTGRES_DB:-stanfinder_dev}']
+      interval: 10s
+      timeout: 5s
+      start_period: 20s
+      retries: 5
+    networks:
+      - stanfinder-network
+
+  # -------------------------------------------------------
+  # Redis 7
+  # -------------------------------------------------------
+  redis:
+    image: redis:7-alpine
+    container_name: ai-stanfinder-redis
+    restart: unless-stopped
+    ports:
+      - '6379:6379'
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 10s
+      timeout: 5s
+      start_period: 10s
+      retries: 5
+    networks:
+      - stanfinder-network
+
+  # -------------------------------------------------------
+  # Mailhog — local email testing (dev only)
+  # -------------------------------------------------------
+  mailhog:
+    image: mailhog/mailhog:latest
+    container_name: ai-stanfinder-mailhog
+    restart: unless-stopped
+    ports:
+      - '1025:1025'   # SMTP
+      - '8025:8025'   # Web UI
+    networks:
+      - stanfinder-network
+
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+
+networks:
+  stanfinder-network:
+    driver: bridge

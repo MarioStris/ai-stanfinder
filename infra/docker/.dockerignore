@@ -1,0 +1,52 @@
+# Version control
+.git
+.gitignore
+.gitattributes
+
+# Node
+node_modules
+**/node_modules
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Build artifacts (rebuilt in Docker)
+dist
+**/dist
+build
+**/build
+coverage
+**/.turbo
+
+# Environment files — NEVER bake secrets into image
+.env
+.env.*
+!.env.example
+
+# Test files
+**/__tests__
+**/*.test.ts
+**/*.spec.ts
+**/vitest.config.*
+
+# Documentation
+docs
+*.md
+!apps/api/package.json
+
+# IDE / OS
+.vscode
+.idea
+.DS_Store
+Thumbs.db
+
+# Docker files themselves
+infra/docker/docker-compose.yml
+infra/docker/Dockerfile
+
+# CI/CD
+.github
+
+# Local dev scripts
+scripts
