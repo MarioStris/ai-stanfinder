@@ -3,7 +3,10 @@ import Constants from "expo-constants";
 const extra = Constants.expoConfig?.extra ?? {};
 
 export const Config = {
-  apiUrl: (extra.apiUrl as string) ?? "http://localhost:3000",
+  apiUrl:
+    (extra.apiUrl as string) ??
+    (process.env.EXPO_PUBLIC_API_URL as string) ??
+    "https://api-production-6622.up.railway.app",
   appVersion: Constants.expoConfig?.version ?? "1.0.0",
   clerkPublishableKey: (extra.clerkPublishableKey as string) ?? "",
   apiTimeout: 15000,

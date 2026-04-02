@@ -1,0 +1,67 @@
+{
+  "cli": {
+    "version": ">= 12.0.0",
+    "appVersionSource": "remote"
+  },
+  "build": {
+    "development": {
+      "developmentClient": true,
+      "distribution": "internal",
+      "ios": {
+        "simulator": false,
+        "credentialsSource": "auto",
+        "bundleIdentifier": "com.stanfinder.app"
+      },
+      "android": {
+        "buildType": "apk",
+        "package": "com.stanfinder.app"
+      },
+      "env": {
+        "EXPO_PUBLIC_API_URL": "http://localhost:3000"
+      }
+    },
+    "preview": {
+      "distribution": "internal",
+      "ios": {
+        "simulator": true,
+        "credentialsSource": "auto",
+        "bundleIdentifier": "com.stanfinder.app"
+      },
+      "android": {
+        "buildType": "apk",
+        "package": "com.stanfinder.app"
+      },
+      "env": {
+        "EXPO_PUBLIC_API_URL": "https://api-staging.stanfinder.com"
+      }
+    },
+    "production": {
+      "distribution": "store",
+      "autoIncrement": true,
+      "ios": {
+        "credentialsSource": "auto",
+        "bundleIdentifier": "com.stanfinder.app"
+      },
+      "android": {
+        "buildType": "app-bundle",
+        "package": "com.stanfinder.app"
+      },
+      "env": {
+        "EXPO_PUBLIC_API_URL": "https://api-production-6622.up.railway.app"
+      }
+    }
+  },
+  "submit": {
+    "production": {
+      "ios": {
+        "appleId": "",
+        "ascAppId": "",
+        "appleTeamId": ""
+      },
+      "android": {
+        "serviceAccountKeyPath": "",
+        "track": "internal"
+      }
+    }
+  }
+}

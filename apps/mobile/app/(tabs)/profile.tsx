@@ -1,10 +1,15 @@
 import React from "react";
-import { View, Text, ScrollView, TouchableOpacity, Alert } from "react-native";
+import { View, Text, ScrollView, TouchableOpacity, Alert, Linking } from "react-native";
 import { useRouter } from "expo-router";
+import { useAuth, useUser } from "@clerk/clerk-expo";
 import { useStore } from "@lib/store";
 import { Card } from "@components/ui/Card";
 import { Button } from "@components/ui/Button";
 import { UserTier } from "@ai-stanfinder/shared-types";
+
+const PRIVACY_URL = "https://stanfinder.hr/privatnost";
+const TOS_URL = "https://stanfinder.hr/uvjeti";
+const SUPPORT_EMAIL = "podrska@stanfinder.hr";
 
 function SectionHeader({ title }: { title: string }) {
   return (
@@ -43,7 +48,7 @@ function MenuItem({
   );
 }
 
-function PremiumUpsellCard() {
+function PremiumUpsellCard({ onUpgrade }: { onUpgrade: () => void }) {
   return (
     <View className="mx-4 mt-6">
       <Card elevated>
@@ -73,7 +78,7 @@ function PremiumUpsellCard() {
           label="Nadogradi — €7.99/mj"
           variant="primary"
           fullWidth
-          onPress={() => {}}
+          onPress={onUpgrade}
         />
         <Text className="text-xs text-gray-400 text-center mt-2">
           ili €59.99/god (ustedite 37%)
@@ -85,10 +90,15 @@ function PremiumUpsellCard() {
 
 export default function ProfileScreen() {
   const router = useRouter();
+  const { signOut } = useAuth();
+  const { user: clerkUser } = useUser();
   const user = useStore((s) => s.user);
   const clearAuth = useStore((s) => s.clearAuth);
   const isPremium = user?.tier === UserTier.PREMIUM;
-  const initials = user?.email ? user.email.slice(0, 2).toUpperCase() : "?";
+
+  const displayEmail =
+    clerkUser?.primaryEmailAddress?.emailAddress ?? user?.email;
+  const initials = displayEmail ? displayEmail.slice(0, 2).toUpperCase() : "?";
 
   function handleLogout() {
     Alert.alert("Odjava", "Jeste li sigurni da se zelite odjaviti?", [
@@ -96,9 +106,13 @@ export default function ProfileScreen() {
       {
         text: "Odjavi se",
         style: "destructive",
-        onPress: () => {
+        onPress: async () => {
+          try {
+            await signOut();
+          } catch {
+            // Clerk session may already be expired — proceed with local cleanup
+          }
           clearAuth();
-          router.replace("/auth/login" as Parameters<typeof router.replace>[0]);
         },
       },
     ]);
@@ -113,7 +127,12 @@ export default function ProfileScreen() {
         {
           text: "Obrisi",
           style: "destructive",
-          onPress: () => {
+          onPress: async () => {
+            try {
+              await signOut();
+            } catch {
+              // Continue with local cleanup regardless
+            }
             clearAuth();
           },
         },
@@ -122,11 +141,15 @@ export default function ProfileScreen() {
   }
 
   function handlePrivacy() {
-    Alert.alert("Politika privatnosti", "Otvaranje u pretrazivacu...");
+    Linking.openURL(PRIVACY_URL);
   }
 
   function handleToS() {
-    Alert.alert("Uvjeti koristenja", "Otvaranje u pretrazivacu...");
+    Linking.openURL(TOS_URL);
+  }
+
+  function handleContact() {
+    Linking.openURL(`mailto:${SUPPORT_EMAIL}?subject=AI%20StanFinder%20-%20Podrska`);
   }
 
   return (
@@ -136,7 +159,7 @@ export default function ProfileScreen() {
           <Text className="text-white text-xl font-bold">{initials}</Text>
         </View>
         <Text className="text-base font-semibold text-gray-900">
-          {user?.email ?? "Gost korisnik"}
+          {displayEmail ?? "Gost korisnik"}
         </Text>
         {isPremium ? (
           <View className="mt-2 px-3 py-1 bg-amber-100 rounded-full">
@@ -151,19 +174,23 @@ export default function ProfileScreen() {
         )}
       </View>
 
-      {!isPremium ? <PremiumUpsellCard /> : null}
+      {!isPremium ? (
+        <PremiumUpsellCard
+          onUpgrade={() => router.push("/subscription" as Parameters<typeof router.push>[0])}
+        />
+      ) : null}
 
       <SectionHeader title="Moj racun" />
       <View>
         <MenuItem icon="🔍" label="Moji filteri" onPress={() => router.push("/(tabs)/filter")} />
-        <MenuItem icon="🔔" label="Postavke obavijesti" onPress={() => {}} />
-        <MenuItem icon="💳" label="Pretplata" onPress={() => {}} />
+        <MenuItem icon="🔔" label="Postavke obavijesti" onPress={() => router.push("/settings/notifications" as Parameters<typeof router.push>[0])} />
+        <MenuItem icon="💳" label="Pretplata" onPress={() => router.push("/subscription" as Parameters<typeof router.push>[0])} />
       </View>
 
       <SectionHeader title="Podrska" />
       <View>
-        <MenuItem icon="❓" label="FAQ" onPress={() => {}} />
-        <MenuItem icon="✉️" label="Kontaktiraj nas" onPress={() => {}} />
+        <MenuItem icon="❓" label="FAQ" onPress={() => router.push("/faq" as Parameters<typeof router.push>[0])} />
+        <MenuItem icon="✉️" label="Kontaktiraj nas" onPress={handleContact} />
       </View>
 
       <SectionHeader title="Pravne informacije" />
