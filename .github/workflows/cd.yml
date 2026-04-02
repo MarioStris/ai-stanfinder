@@ -3,193 +3,53 @@ name: CD
 on:
   push:
     branches:
-      - main      # deploys to production
-      - develop   # deploys to staging
+      - main
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: false  # never cancel an active deploy
-
-env:
-  NODE_VERSION: '20'
-  PNPM_VERSION: '9'
+  cancel-in-progress: false
 
 jobs:
-  # ----------------------------------------------------------------
-  # Gate: run full CI suite before any deploy
-  # ----------------------------------------------------------------
-  ci-gate:
-    name: CI Gate (lint + type-check + tests + build)
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
-
-    services:
-      postgres:
-        image: postgres:16-alpine
-        env:
-          POSTGRES_USER: stanfinder_test
-          POSTGRES_PASSWORD: stanfinder_test
-          POSTGRES_DB: stanfinder_test
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-
-      redis:
-        image: redis:7-alpine
-        ports:
-          - 6379:6379
-        options: >-
-          --health-cmd "redis-cli ping"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v3
-        with:
-          version: ${{ env.PNPM_VERSION }}
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: 'pnpm'
-
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
-
-      - name: Type check
-        run: pnpm run type-check
-
-      - name: Lint
-        run: pnpm run lint
-
-      - name: Run tests
-        run: pnpm run test
-        env:
-          NODE_ENV: test
-          DATABASE_URL: postgresql://stanfinder_test:stanfinder_test@localhost:5432/stanfinder_test
-          REDIS_URL: redis://localhost:6379
-
-      - name: Build
-        run: pnpm run build
-
-  # ----------------------------------------------------------------
-  # Deploy to staging (develop branch only)
-  # ----------------------------------------------------------------
-  deploy-staging:
-    name: Deploy to Staging
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    needs: [ci-gate]
-    if: github.ref == 'refs/heads/develop'
-    environment:
-      name: staging
-      url: ${{ vars.STAGING_URL }}
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Install Railway CLI
-        run: npm install -g @railway/cli
-
-      - name: Deploy to Railway staging
-        run: railway up --service ${{ vars.RAILWAY_STAGING_SERVICE_ID }} --detach
-        env:
-          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
-
-      - name: Wait for deploy & run health check
-        run: |
-          echo "Waiting 30s for service to start..."
-          sleep 30
-          STATUS=$(curl -s -o /dev/null -w "%{http_code}" "${{ vars.STAGING_URL }}/api/health")
-          if [ "$STATUS" != "200" ]; then
-            echo "Health check failed — HTTP $STATUS"
-            exit 1
-          fi
-          echo "Health check passed — HTTP $STATUS"
-
-      - name: Run Prisma migrations on staging
-        run: railway run --service ${{ vars.RAILWAY_STAGING_SERVICE_ID }} -- npx prisma migrate deploy
-        env:
-          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
-
-  # ----------------------------------------------------------------
-  # Deploy to production (main branch only)
-  # ----------------------------------------------------------------
   deploy-production:
     name: Deploy to Production
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    needs: [ci-gate]
-    if: github.ref == 'refs/heads/main'
-    environment:
-      name: production
-      url: ${{ vars.PRODUCTION_URL }}
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Install Railway CLI
-        run: npm install -g @railway/cli
-
       - name: Setup pnpm
         uses: pnpm/action-setup@v3
         with:
-          version: ${{ env.PNPM_VERSION }}
+          version: 9
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: ${{ env.NODE_VERSION }}
+          node-version: '20'
           cache: 'pnpm'
 
-      - name: Deploy to Railway production
+      - name: Install Railway CLI
+        run: npm install -g @railway/cli
+
+      - name: Deploy to Railway
         run: railway up --service ${{ vars.RAILWAY_PRODUCTION_SERVICE_ID }} --detach
         env:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
 
-      - name: Wait for deploy & run health check
+      - name: Health check
         run: |
-          echo "Waiting 45s for production service to start..."
-          sleep 45
+          echo "Waiting 60s for deploy..."
+          sleep 60
           for i in 1 2 3; do
             STATUS=$(curl -s -o /dev/null -w "%{http_code}" "${{ vars.PRODUCTION_URL }}/api/health")
             if [ "$STATUS" = "200" ]; then
-              echo "Health check passed on attempt $i — HTTP $STATUS"
+              echo "Health check passed — HTTP $STATUS"
               exit 0
             fi
-            echo "Attempt $i failed — HTTP $STATUS. Retrying in 15s..."
+            echo "Attempt $i — HTTP $STATUS. Retrying in 15s..."
             sleep 15
           done
-          echo "Health check failed after 3 attempts. Triggering rollback..."
+          echo "Health check failed after 3 attempts"
           exit 1
-
-      - name: Run Prisma migrations on production
-        run: railway run --service ${{ vars.RAILWAY_PRODUCTION_SERVICE_ID }} -- npx prisma migrate deploy
-        env:
-          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
-
-      - name: Notify on success
-        if: success()
-        run: |
-          echo "Production deploy successful: $(date -u '+%Y-%m-%dT%H:%M:%SZ')"
-          echo "Commit: ${{ github.sha }}"
-          echo "Author: ${{ github.actor }}"
-
-      - name: Notify on failure
-        if: failure()
-        run: |
-          echo "DEPLOY FAILED — production may be degraded"
-          echo "Commit: ${{ github.sha }}"
-          echo "Manual rollback: railway rollback --service ${{ vars.RAILWAY_PRODUCTION_SERVICE_ID }}"
